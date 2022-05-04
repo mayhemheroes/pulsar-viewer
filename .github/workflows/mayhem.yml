@@ -1,0 +1,94 @@
+name: 'Mayhem for API'
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Sets env vars
+        run: |
+          echo "VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          echo "IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}" >> $GITHUB_ENV
+
+      - name: Build and Start Docker
+        run: |
+          docker build -f Dockerfile -t ${{ env.IMAGE }} .
+          docker network create hpt
+          docker run -d --rm --name pulsar --net hpt -p 6650:6650 -v $(pwd)/development/pulsar/conf:/pulsar/conf:ro apachepulsar/pulsar:2.8.0 bin/pulsar standalone -nfw
+          docker run -d --rm --name pulsar-viewer --net hpt -p 8082:8080 -e PULSAR_SERVICE_URL=pulsar://pulsar:6650 osomahe/pulsar-source-app:0.4.0
+
+      - name: Wait for server to start
+        run: timeout 30 bash -c 'until curl --fail localhost:8082; do docker ps && sleep 2; done'
+
+      ##################################################
+      # Mayhem
+      #
+      # Run Mayhem for API. This will start a new run
+      # against the REST API actively running on the
+      # container launched earlier.
+      #
+      # Results will be collected in SAIRF formatted and
+      # submitted to the codeql--action in order to report
+      # API issues that are discovered.
+      ##################################################
+      - name: Run Mayhem for API to check for vulnerabilities
+        uses: ForAllSecure/mapi-action@v1
+        continue-on-error: true
+        with:
+          mapi-token: ${{ secrets.MAPI_TOKEN }}
+          api-url: http://localhost:8082
+          api-spec: openapy.yml
+          target: mayhemheroes/pulsar-viewer
+          duration: 1min
+          sarif-report: mapi.sarif
+          html-report: mapi.html
+          run-args: |
+            --concurrency
+            4
+
+      ##################################################
+      # Report
+      #
+      # An HTML report containing the the results of the
+      # run are archived for later viewing, and a SARIF
+      # (Static Analysis Results Interchange Format)
+      # report produced and passed to codeQL. codeQL will
+      # report any issues discovered in your Action results
+      ##################################################
+      - name: Archive Mayhem for API report
+        uses: actions/upload-artifact@v2
+        with:
+          name: mapi-report
+          path: mapi.html
+
+      - name: Archive Mayhem for API SARIF report
+        uses: actions/upload-artifact@v2
+        with:
+          name: sarif-report
+          path: mapi.sarif
+
+      # Upload SARIF file (only available on public repos or github enterprise)
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: mapi.sarif
+
+      # Clean up docker compose environment
+      - name: Clean up
+        if: always()
+        run: |
+         docker rm -f pulsar pulsar-viewer
+         docker network rm hpt
