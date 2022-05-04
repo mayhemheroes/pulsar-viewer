@@ -21,7 +21,7 @@ jobs:
       - name: Sets env vars
         run: |
           echo "VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
-          echo "IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}" >> $GITHUB_ENV
+          echo "IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_REF##*/}" >> $GITHUB_ENV
 
       - name: Build and Start Docker
         run: |
