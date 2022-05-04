@@ -1,5 +1,7 @@
 # Pulsar Viewer
 
+[![Mayhem for API](https://mayhem4api.forallsecure.com/api/v1/api-target/mayhemheroes/pulsar-viewer/badge/icon.svg?scm_branch=main)](https://mayhem4api.forallsecure.com/mayhemheroes/pulsar-viewer/latest-job?scm_branch=main)
+
 This application provides simple REST api to see messages stored in Apache Pulsar topics. There is also simple html page to call that REST api.
 
 REST API documentation is available [openapi.yml](openapi.yml) file.
