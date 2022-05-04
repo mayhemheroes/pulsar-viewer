@@ -50,7 +50,7 @@ jobs:
         with:
           mapi-token: ${{ secrets.MAPI_TOKEN }}
           api-url: http://localhost:8082
-          api-spec: openapy.yml
+          api-spec: openapi.yml
           target: mayhemheroes/pulsar-viewer
           duration: 1min
           sarif-report: mapi.sarif
